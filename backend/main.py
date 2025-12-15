@@ -26,19 +26,49 @@ CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 SCOPE = "playlist-read-private playlist-modify-public playlist-modify-private user-library-read"
 
-# Global Auth Manager (for local single-user use)
+# Global Auth Manager (Stateless for Vercel)
+# We don't use cache_path here. We handle tokens manually via cookies.
 sp_oauth = SpotifyOAuth(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     redirect_uri=REDIRECT_URI,
     scope=SCOPE,
-    cache_path=".cache"
+    show_dialog=True,
+    cache_handler=None # Disable file caching
 )
 
-def get_spotify_client():
-    token_info = sp_oauth.get_cached_token()
+import json
+from base64 import b64encode, b64decode
+
+def get_token_from_cookie(request: Request):
+    token_str = request.cookies.get("spotify_token")
+    if not token_str:
+        return None
+    try:
+        return json.loads(b64decode(token_str).decode('utf-8'))
+    except:
+        return None
+
+def get_spotify_client(request: Request = None, token_info=None):
+    # If token_info is passed directly (e.g. inside callback), use it
+    if not token_info and request:
+        token_info = get_token_from_cookie(request)
+    
     if not token_info:
         return None
+
+    # Check validity and refresh if needed
+    if sp_oauth.is_token_expired(token_info):
+        try:
+            token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+            # Note: We can't update the cookie here easily without a Response object.
+            # In a full conversion, we'd handle this middleware-style. 
+            # For now, we'll return the new token info so the endpoint can set the cookie if needed, 
+            # or just use it for this request.
+        except Exception as e:
+            print(f"Error refreshing token: {e}")
+            return None
+
     return spotipy.Spotify(auth=token_info['access_token'])
 
 @app.get("/")
@@ -52,13 +82,26 @@ def login():
 
 @app.get("/callback")
 def callback(code: str):
-    sp_oauth.get_access_token(code)
-    # After auth, redirect to frontend dashboard
-    return RedirectResponse("http://localhost:5173/dashboard")
+    token_info = sp_oauth.get_access_token(code)
+    
+    # Serialize token info
+    token_str = b64encode(json.dumps(token_info).encode('utf-8')).decode('utf-8')
+    
+    # Redirect to frontend with the cookie set
+    response = RedirectResponse("http://localhost:5173/dashboard")
+    response.set_cookie(
+        key="spotify_token", 
+        value=token_str, 
+        httponly=True, 
+        max_age=3600*24*7, # 1 week
+        samesite="lax",
+        secure=False # Set to True in production (HTTPS)
+    )
+    return response
 
 @app.get("/api/playlists")
-def get_playlists():
-    sp = get_spotify_client()
+def get_playlists(request: Request):
+    sp = get_spotify_client(request=request)
     if not sp:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
@@ -87,8 +130,8 @@ def get_playlists():
     return {"playlists": playlists}
 
 @app.get("/api/status")
-def get_status():
-    sp = get_spotify_client()
+def get_status(request: Request):
+    sp = get_spotify_client(request=request)
     if sp:
         return {"authenticated": True, "user": sp.current_user()['display_name']}
     return {"authenticated": False}
@@ -101,13 +144,13 @@ class CreatePlaylistRequest(BaseModel):
     track_uris: List[str]
 
 @app.get("/api/analyze")
-def analyze_playlists(playlist_ids: str):
+def analyze_playlists(playlist_ids: str, request: Request):
     """
     Analyzes one or more playlists (comma-separated IDs).
     Supports 'liked' as a special ID.
     Merges tracks from all sources and removes duplicates.
     """
-    sp = get_spotify_client()
+    sp = get_spotify_client(request=request)
     if not sp:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -216,8 +259,8 @@ def analyze_playlists(playlist_ids: str):
     }
 
 @app.post("/api/create_playlist")
-def create_playlist(request: CreatePlaylistRequest):
-    sp = get_spotify_client()
+def create_playlist(data: CreatePlaylistRequest, request: Request):
+    sp = get_spotify_client(request=request)
     if not sp:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
