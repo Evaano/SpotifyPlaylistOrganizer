@@ -14,7 +14,7 @@ app = FastAPI()
 # Allow CORS for React frontend (default Port 5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:5173")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +24,7 @@ app.add_middleware(
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 SCOPE = "playlist-read-private playlist-modify-public playlist-modify-private user-library-read"
 
 # Global Auth Manager (Stateless for Vercel)
@@ -88,7 +89,7 @@ def callback(code: str):
     token_str = b64encode(json.dumps(token_info).encode('utf-8')).decode('utf-8')
     
     # Redirect to frontend with the cookie set
-    response = RedirectResponse("http://localhost:5173/dashboard")
+    response = RedirectResponse(f"{FRONTEND_URL}/dashboard")
     response.set_cookie(
         key="spotify_token", 
         value=token_str, 
