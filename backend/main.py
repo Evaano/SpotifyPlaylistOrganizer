@@ -90,13 +90,17 @@ def callback(code: str):
     
     # Redirect to frontend with the cookie set
     response = RedirectResponse(f"{FRONTEND_URL}/dashboard")
+    
+    # Determine if we are in production based on FRONTEND_URL
+    is_production = FRONTEND_URL.startswith("https")
+    
     response.set_cookie(
         key="spotify_token", 
         value=token_str, 
         httponly=True, 
         max_age=3600*24*7, # 1 week
         samesite="lax",
-        secure=False # Set to True in production (HTTPS)
+        secure=is_production # Auto-enable secure cookies if using HTTPS
     )
     return response
 
