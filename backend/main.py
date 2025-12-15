@@ -273,20 +273,20 @@ def create_playlist(data: CreatePlaylistRequest, request: Request):
     
     # Iterate to find existing playlist by name
     for pl in user_playlists['items']:
-        if pl['name'] == request.name:
+        if pl['name'] == data.name:
             target_playlist = pl
             break
             
     if not target_playlist:
-        print(f"Creating new playlist: {request.name}")
+        print(f"Creating new playlist: {data.name}")
         target_playlist = sp.user_playlist_create(
             user=user_id, 
-            name=request.name, 
+            name=data.name, 
             public=False, 
             description="Created by Spotify Sorter"
         )
     else:
-        print(f"Found existing playlist: {request.name} ({target_playlist['id']})")
+        print(f"Found existing playlist: {data.name} ({target_playlist['id']})")
 
     # 2. Deduplication check: Fetch existing tracks to avoid duplicates
     existing_track_uris = set()
@@ -302,18 +302,18 @@ def create_playlist(data: CreatePlaylistRequest, request: Request):
                 existing_track_uris.add(item['track']['uri'])
 
     # Filter out tracks that are already in the playlist
-    uris_to_add = [uri for uri in request.track_uris if uri not in existing_track_uris]
+    uris_to_add = [uri for uri in data.track_uris if uri not in existing_track_uris]
 
     # 3. Add tracks in batches of 100
     if uris_to_add:
-        print(f"Adding {len(uris_to_add)} new tracks to {request.name}...")
+        print(f"Adding {len(uris_to_add)} new tracks to {data.name}...")
         for i in range(0, len(uris_to_add), 100):
             batch = uris_to_add[i:i+100]
             sp.playlist_add_items(target_playlist['id'], batch)
             
         return {
             "status": "success", 
-            "message": f"Added {len(uris_to_add)} new tracks to '{request.name}'.",
+            "message": f"Added {len(uris_to_add)} new tracks to '{data.name}'.",
             "playlist_id": target_playlist['id'],
             "playlist_url": target_playlist['external_urls']['spotify']
         }
