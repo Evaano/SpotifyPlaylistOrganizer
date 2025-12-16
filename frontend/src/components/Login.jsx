@@ -1,8 +1,7 @@
 import React, { useEffect } from "react";
 import { Music } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import API_BASE_URL from "../config";
+import api, { API_BASE_URL } from "../config";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,7 +9,7 @@ export default function Login() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/status`);
+        const response = await api.get("/api/status");
         if (response.data.authenticated) {
           navigate("/dashboard");
         }
@@ -48,9 +47,7 @@ export default function Login() {
           <span>Connect with Spotify</span>
         </button>
 
-        <p className="mt-6 text-xs text-neutral-500">
-          Powered by Python & React
-        </p>
+        <p className="mt-6 text-xs text-neutral-500">Powered by Python & React</p>
       </div>
     </div>
   );

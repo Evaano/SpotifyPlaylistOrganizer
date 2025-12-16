@@ -29,8 +29,8 @@ def run_app():
     )
 
     print("\n✅ Both servers are running!")
-    print("   - Backend: http://localhost:8000")
-    print("   - Frontend: http://localhost:5173\n")
+    print("   - Backend: http://127.0.0.1:8000")
+    print("   - Frontend: http://127.0.0.1:5173\n")
     print("Press Ctrl+C to stop both servers.")
 
     try:

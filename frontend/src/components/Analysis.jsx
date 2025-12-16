@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   ArrowLeft,
   Loader2,
@@ -11,8 +10,17 @@ import {
   Check,
   AlertCircle,
   Info,
+  Zap,
+  Smile,
+  Activity,
+  Flame,
+  CloudRain,
+  PartyPopper,
+  Timer,
+  Guitar,
+  Mic,
 } from "lucide-react";
-import API_BASE_URL from "../config";
+import api from "../config";
 
 export default function Analysis() {
   const { id } = useParams();
@@ -34,9 +42,7 @@ export default function Analysis() {
   useEffect(() => {
     const fetchAnalysis = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/analyze?playlist_ids=${id}`
-        );
+        const response = await api.get(`/api/analyze?playlist_ids=${id}`);
         setData(response.data);
         setLoading(false);
       } catch (error) {
@@ -65,16 +71,12 @@ export default function Analysis() {
   };
 
   const handleCreatePlaylist = (genre) => {
-    const tracksToAdd = data.tracks
-      .filter((t) => t.genres.includes(genre))
-      .map((t) => t.uri);
+    const tracksToAdd = data.tracks.filter((t) => t.genres.includes(genre)).map((t) => t.uri);
 
     if (tracksToAdd.length === 0) return;
 
-    // Capitalize genre for display
     const genreName = genre.charAt(0).toUpperCase() + genre.slice(1);
 
-    // Open Confirmation Modal
     setModal({
       isOpen: true,
       type: "confirm",
@@ -82,6 +84,60 @@ export default function Analysis() {
       message: `This will create a new playlist with ${tracksToAdd.length} tracks. Duplicate checks will be performed automatically.`,
       onConfirm: () => performCreate(genreName, tracksToAdd),
     });
+  };
+
+  const handleCreateVibePlaylist = (vibe) => {
+    const vibeTitles = {
+      depressy: "Depressy / Sad",
+      chill: "Chill / Relaxed",
+      party: "Party / Hype",
+      intense: "Intense / High Energy",
+    };
+
+    setModal({
+      isOpen: true,
+      type: "confirm",
+      title: `Generate ${vibeTitles[vibe] || vibe} Playlist?`,
+      message: `We will analyze your selected playlists and extract tracks matching this vibe.`,
+      onConfirm: () => performVibeCreate(vibe),
+    });
+  };
+
+  const performVibeCreate = async (vibe) => {
+    try {
+      setModal({
+        isOpen: true,
+        type: "loading",
+        title: "Analyzing Vibes...",
+        message: "Scanning audio features and compiling your mix...",
+        onConfirm: null,
+      });
+
+      // We need to pass the source playlist IDs.
+      // In this component, 'id' param contains comma-separated IDs.
+      const response = await api.post("/api/create_vibe_playlist", {
+        name: `${vibe.charAt(0).toUpperCase() + vibe.slice(1)} Mix`,
+        source_playlist_ids: id,
+        vibe: vibe,
+      });
+
+      setModal({
+        isOpen: true,
+        type: "success",
+        title: "Vibe playlist Created!",
+        message: response.data.message,
+        onConfirm: null,
+      });
+    } catch (error) {
+      console.error("Failed to create vibe playlist", error);
+      setModal({
+        isOpen: true,
+        type: "error",
+        title: "Generation Failed",
+        message: error.response?.data?.detail || "Could not generate playlist for this vibe.",
+        onConfirm: null,
+      });
+    }
   };
 
   const performCreate = async (genre, tracksToAdd) => {
@@ -95,7 +151,7 @@ export default function Analysis() {
         onConfirm: null,
       });
 
-      const response = await axios.post(`${API_BASE_URL}/api/create_playlist`, {
+      const response = await api.post("/api/create_playlist", {
         name: `${genre} Mix`,
         track_uris: tracksToAdd,
       });
@@ -115,8 +171,7 @@ export default function Analysis() {
         isOpen: true,
         type: "error",
         title: "Creation Failed",
-        message:
-          "Something went wrong while creating the playlist. Please try again.",
+        message: "Something went wrong while creating the playlist. Please try again.",
         onConfirm: null,
       });
     }
@@ -134,8 +189,7 @@ export default function Analysis() {
     );
   }
 
-  if (!data)
-    return <div className="text-white p-8">Failed to load analysis.</div>;
+  if (!data) return <div className="text-white p-8">Failed to load analysis.</div>;
 
   // Filter tracks matches the selected genre if one is active
   const visibleTracks = selectedGenre
@@ -149,23 +203,15 @@ export default function Analysis() {
         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-neutral-800 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
             <div className="flex justify-center mb-6">
-              {modal.type === "confirm" && (
-                <Disc size={48} className="text-blue-500" />
-              )}
+              {modal.type === "confirm" && <Disc size={48} className="text-blue-500" />}
               {modal.type === "loading" && (
                 <Loader2 size={48} className="text-green-500 animate-spin" />
               )}
-              {modal.type === "success" && (
-                <Check size={48} className="text-green-500" />
-              )}
-              {modal.type === "error" && (
-                <AlertCircle size={48} className="text-red-500" />
-              )}
+              {modal.type === "success" && <Check size={48} className="text-green-500" />}
+              {modal.type === "error" && <AlertCircle size={48} className="text-red-500" />}
             </div>
 
-            <h3 className="text-2xl font-bold text-center mb-2">
-              {modal.title}
-            </h3>
+            <h3 className="text-2xl font-bold text-center mb-2">{modal.title}</h3>
             <p className="text-neutral-400 text-center mb-8">{modal.message}</p>
 
             <div className="flex gap-3 justify-center">
@@ -214,12 +260,12 @@ export default function Analysis() {
               <div>
                 <p className="font-semibold mb-1">How it works:</p>
                 <p>
-                  1. Click a <strong>Genre</strong> on the left to filter the
-                  tracks.
+                  1. Use <strong>Vibe Generator</strong> buttons to create mood-based playlists
+                  automatically.
                 </p>
                 <p>
-                  2. Once filtered, click the <strong>Create Playlist</strong>{" "}
-                  button to save it to Spotify.
+                  2. Or click a <strong>Genre</strong> to filter tracks, then{" "}
+                  <strong>Create Playlist</strong>.
                 </p>
               </div>
               <button
@@ -238,26 +284,77 @@ export default function Analysis() {
             <div className="flex gap-4 text-neutral-400 mt-4">
               <div className="bg-neutral-800 px-4 py-2 rounded-lg flex items-center gap-2">
                 <Music2 size={18} />
-                <span className="text-white font-bold">
-                  {data.metrics.total_tracks}
-                </span>{" "}
-                Tracks
+                <span className="text-white font-bold">{data.metrics.total_tracks}</span> Tracks
               </div>
               <div className="bg-neutral-800 px-4 py-2 rounded-lg flex items-center gap-2">
                 <Disc size={18} />
-                <span className="text-white font-bold">
-                  {data.metrics.unique_artists}
-                </span>{" "}
-                Artists
+                <span className="text-white font-bold">{data.metrics.unique_artists}</span> Artists
               </div>
               <div className="bg-neutral-800 px-4 py-2 rounded-lg flex items-center gap-2">
                 <BarChart3 size={18} />
-                <span className="text-white font-bold">
-                  {data.metrics.total_genres}
-                </span>{" "}
-                Genres
+                <span className="text-white font-bold">{data.metrics.total_genres}</span> Genres
               </div>
             </div>
+            {data.metrics.tracks_with_features > 0 && (
+              <>
+                <div className="flex flex-wrap gap-3 text-neutral-400 mt-2">
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Energy (0-1)"
+                  >
+                    <Zap size={16} className="text-yellow-400" />
+                    <span className="text-white font-bold">{data.metrics.avg_energy}</span>
+                    Energy
+                  </div>
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Valence/Mood (0-1)"
+                  >
+                    <Smile size={16} className="text-blue-400" />
+                    <span className="text-white font-bold">{data.metrics.avg_valence}</span>
+                    Mood
+                  </div>
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Danceability (0-1)"
+                  >
+                    <Activity size={16} className="text-pink-400" />
+                    <span className="text-white font-bold">{data.metrics.avg_danceability}</span>
+                    Dance
+                  </div>
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Tempo (BPM)"
+                  >
+                    <Timer size={16} className="text-orange-400" />
+                    <span className="text-white font-bold">{data.metrics.avg_tempo}</span>
+                    BPM
+                  </div>
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Acousticness (0-1)"
+                  >
+                    <Guitar size={16} className="text-amber-400" />
+                    <span className="text-white font-bold">{data.metrics.avg_acousticness}</span>
+                    Acoustic
+                  </div>
+                  <div
+                    className="bg-neutral-800 px-3 py-2 rounded-lg flex items-center gap-2"
+                    title="Average Instrumentalness (0-1) - Higher = less vocals"
+                  >
+                    <Mic size={16} className="text-purple-400" />
+                    <span className="text-white font-bold">
+                      {data.metrics.avg_instrumentalness}
+                    </span>
+                    Instrumental
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Audio features from {data.metrics.tracks_with_features} of{" "}
+                  {data.metrics.total_tracks} tracks
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -267,8 +364,53 @@ export default function Analysis() {
         {/* Left Col: Interactive Genre List */}
         <div className="bg-neutral-800/50 rounded-2xl p-6 border border-white/5 flex flex-col overflow-hidden">
           <h2 className="text-2xl font-bold mb-4 flex-shrink-0">
-            {selectedGenre ? `Genre: ${selectedGenre}` : "Top Genres"}
+            {selectedGenre ? `Genre: ${selectedGenre}` : "Vibe Generator"}
           </h2>
+
+          {!selectedGenre && (
+            <div className="mb-6 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleCreateVibePlaylist("depressy")}
+                className="bg-indigo-900/50 hover:bg-indigo-800/80 border border-indigo-500/30 p-3 rounded-xl text-left transition-all hover:scale-105 group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-40">
+                  <CloudRain size={24} />
+                </div>
+                <div className="font-bold text-indigo-200">Depressy</div>
+                <div className="text-xs text-indigo-400">Sad & Moody</div>
+              </button>
+              <button
+                onClick={() => handleCreateVibePlaylist("chill")}
+                className="bg-teal-900/50 hover:bg-teal-800/80 border border-teal-500/30 p-3 rounded-xl text-left transition-all hover:scale-105 group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-40">
+                  <Smile size={24} />
+                </div>
+                <div className="font-bold text-teal-200">Chill</div>
+                <div className="text-xs text-teal-400">Relaxed Vibes</div>
+              </button>
+              <button
+                onClick={() => handleCreateVibePlaylist("party")}
+                className="bg-pink-900/50 hover:bg-pink-800/80 border border-pink-500/30 p-3 rounded-xl text-left transition-all hover:scale-105 group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-40">
+                  <PartyPopper size={24} />
+                </div>
+                <div className="font-bold text-pink-200">Party</div>
+                <div className="text-xs text-pink-400">High Energy</div>
+              </button>
+              <button
+                onClick={() => handleCreateVibePlaylist("intense")}
+                className="bg-red-900/50 hover:bg-red-800/80 border border-red-500/30 p-3 rounded-xl text-left transition-all hover:scale-105 group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-40">
+                  <Flame size={24} />
+                </div>
+                <div className="font-bold text-red-200">Intense</div>
+                <div className="text-xs text-red-400">Aggressive</div>
+              </button>
+            </div>
+          )}
 
           {selectedGenre && (
             <button
@@ -283,10 +425,7 @@ export default function Analysis() {
             {Object.entries(data.genre_counts)
               .slice(0, 50)
               .map(([genre, count], index) => {
-                const percentage = (
-                  (count / data.metrics.total_tracks) *
-                  100
-                ).toFixed(1);
+                const percentage = ((count / data.metrics.total_tracks) * 100).toFixed(1);
                 const isSelected = selectedGenre === genre;
 
                 return (
@@ -301,9 +440,7 @@ export default function Analysis() {
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span
-                        className={`capitalize font-medium ${
-                          isSelected ? "text-green-500" : ""
-                        }`}
+                        className={`capitalize font-medium ${isSelected ? "text-green-500" : ""}`}
                       >
                         {genre}
                       </span>
@@ -344,9 +481,7 @@ export default function Analysis() {
           <h2 className="text-2xl font-bold mb-4 flex-shrink-0">
             Tracks{" "}
             {selectedGenre && (
-              <span className="text-neutral-400 text-lg font-normal">
-                ({visibleTracks.length})
-              </span>
+              <span className="text-neutral-400 text-lg font-normal">({visibleTracks.length})</span>
             )}
           </h2>
           <div className="overflow-y-auto pr-2 space-y-2 custom-scrollbar flex-1">
@@ -380,9 +515,7 @@ export default function Analysis() {
                     </span>
                   ))}
                   {track.genres.length === 0 && (
-                    <span className="text-xs text-neutral-600 italic">
-                      Unknown Genre
-                    </span>
+                    <span className="text-xs text-neutral-600 italic">Unknown Genre</span>
                   )}
                 </div>
               </div>
